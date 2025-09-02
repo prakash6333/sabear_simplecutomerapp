@@ -1,9 +1,11 @@
+
 pipeline {
-    agent any
+    agent {
+        label "master"
+    }
     tools {
         // Note: this should match with the tool name configured in your jenkins instance (JENKINS_URL/configureTools/)
         maven "MVN_HOME"
-        
     }
 	 environment {
         // This can be nexus3 or nexus2
@@ -16,7 +18,7 @@ pipeline {
         NEXUS_REPOSITORY = "hiring_app"
         // Jenkins credential id to authenticate to Nexus OSS
         NEXUS_CREDENTIAL_ID = "nexus"
-	SCANNER_HOME = tool 'sonarscanner'
+		SCANNER_HOME = tool 'sonarscanner'
     }
     stages {
         stage("clone code") {
@@ -32,27 +34,10 @@ pipeline {
                 script {
                     // If you are using Windows then you should use "bat" step
                     // Since unit testing is out of the scope we skip them
-                    sh 'mvn -Dmaven.test.failure.ignore=true clean install'
+                    sh 'mvn -Dmaven.test.failure.ignore=true install'
                 }
             }
         }
-	stage('SonarQube Analysis') {
-    steps {
-        withSonarQubeEnv('sonarcube_jenkins integration') {
-            sh '''
-            $SCANNER_HOME/bin/sonar-scanner \
-              -Dsonar.projectKey=Ncodeit \
-              -Dsonar.projectName=Ncodeit \
-              -Dsonar.projectVersion=2.0 \
-              -Dsonar.sources=src \
-              -Dsonar.java.binaries=target/classes \
-              -Dsonar.junit.reportsPath=target/surefire-reports \
-              -Dsonar.jacoco.reportPath=target/jacoco.exec
-            '''
-        }
-    }
-}
-
         stage("publish to nexus") {
             steps {
                 script {
@@ -93,6 +78,11 @@ pipeline {
                         error "*** File: ${artifactPath}, could not be found";
                     }
                 }
+            }
+        }
+		stage("Deploy to container") {
+            steps {
+            deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'tomcat_credentials', path: '', url: 'http://18.234.209.4:8080')], contextPath: null, war: '**/*.war'
             }
         }
     }

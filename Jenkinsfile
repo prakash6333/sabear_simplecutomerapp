@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     tools {
-        maven 'Maven-3.8.4'   // Must match your Jenkins Maven installation
+        maven 'MVN_HOME'   // Use the exact Maven installation name from Jenkins
     }
 
     environment {
         NEXUS_CRED   = 'nexus'
         TOMCAT_CRED  = 'tomcat_credentials'
-        SONAR_SERVER = 'sonarcube_jenkins integration'  // Name from Jenkins SonarQube config
+        SONAR_SERVER = 'SonarQube'
     }
 
     stages {

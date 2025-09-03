@@ -1,89 +1,72 @@
-
 pipeline {
-    agent {
-        label "master"
-    }
-    tools {
-        // Note: this should match with the tool name configured in your jenkins instance (JENKINS_URL/configureTools/)
-        maven "MVN_HOME"
-    }
-	 environment {
-        // This can be nexus3 or nexus2
-        NEXUS_VERSION = "nexus3"
-        // This can be http or https
-        NEXUS_PROTOCOL = "http"
-        // Where your Nexus is running
-        NEXUS_URL = "34.229.166.201:8081/"
-        // Repository where we will upload the artifact
-        NEXUS_REPOSITORY = "hiring_app"
-        // Jenkins credential id to authenticate to Nexus OSS
-        NEXUS_CREDENTIAL_ID = "nexus"
-		SCANNER_HOME = tool 'sonarscanner'
+    agent any
+    environment {
+        NEXUS_CRED = 'nexus'
+        TOMCAT_CRED = 'tomcat_credentials'
     }
     stages {
-        stage("clone code") {
+        stage('Checkout SCM') {
             steps {
-                script {
-                    // Let's clone the source
-                    git 'https://github.com/prakash6333/sabear_simplecutomerapp.git';
+                git url: 'https://github.com/prakash6333/sabear_simplecutomerapp.git', branch: 'feature-1.1'
+            }
+        }
+        stage('Build') {
+            steps {
+                tool name: 'Maven-3.8.4', type: 'maven'
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh 'mvn sonar:sonar'
                 }
             }
         }
-        stage("mvn build") {
+        stage('Deploy to Nexus') {
             steps {
-                script {
-                    // If you are using Windows then you should use "bat" step
-                    // Since unit testing is out of the scope we skip them
-                    sh 'mvn -Dmaven.test.failure.ignore=true install'
+                withCredentials([usernamePassword(credentialsId: "${NEXUS_CRED}", usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                    sh '''
+                    mvn deploy -DskipTests \
+                        -Dnexus.username=$NEXUS_USER \
+                        -Dnexus.password=$NEXUS_PASS \
+                        --settings /var/lib/jenkins/.m2/settings.xml
+                    '''
                 }
             }
         }
-        stage("publish to nexus") {
+        stage('Deploy to Tomcat') {
             steps {
-                script {
-                    // Read POM xml file using 'readMavenPom' step , this step 'readMavenPom' is included in: https://plugins.jenkins.io/pipeline-utility-steps
-                    pom = readMavenPom file: "pom.xml";
-                    // Find built artifact under target folder
-                    filesByGlob = findFiles(glob: "target/*.${pom.packaging}");
-                    // Print some info from the artifact found
-                    echo "${filesByGlob[0].name} ${filesByGlob[0].path} ${filesByGlob[0].directory} ${filesByGlob[0].length} ${filesByGlob[0].lastModified}"
-                    // Extract the path from the File found
-                    artifactPath = filesByGlob[0].path;
-                    // Assign to a boolean response verifying If the artifact name exists
-                    artifactExists = fileExists artifactPath;
-                    if(artifactExists) {
-                        echo "*** File: ${artifactPath}, group: ${pom.groupId}, packaging: ${pom.packaging}, version ${pom.version}";
-                        nexusArtifactUploader(
-                            nexusVersion: NEXUS_VERSION,
-                            protocol: NEXUS_PROTOCOL,
-                            nexusUrl: NEXUS_URL,
-			    groupId: pom.groupId,
-                            version: pom.version,
-                            repository: NEXUS_REPOSITORY,
-                            credentialsId: NEXUS_CREDENTIAL_ID,
-                            artifacts: [
-                                // Artifact generated such as .jar, .ear and .war files.
-                                [artifactId: pom.artifactId,
-                                classifier: '',
-                                file: artifactPath,
-                                type: pom.packaging],
-                                // Lets upload the pom.xml file for additional information for Transitive dependencies
-                                [artifactId: pom.artifactId,
-                                classifier: '',
-                                file: "pom.xml",
-                                type: "pom"]
-                            ]
-                        );
-                    } else {
-                        error "*** File: ${artifactPath}, could not be found";
-                    }
+                withCredentials([usernamePassword(credentialsId: "${TOMCAT_CRED}", usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
+                    sh '''
+                    WAR_FILE=$(ls target/*.war | head -n 1)
+                    curl -u $TOMCAT_USER:$TOMCAT_PASS \
+                         -T $WAR_FILE \
+                         http://18.234.209.4:8080/manager/text/deploy?path=/hiring&update=true
+                    '''
                 }
             }
         }
-		stage("Deploy to container") {
+        stage('Slack Notification') {
             steps {
-            deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'tomcat_credentials', path: '', url: 'http://18.234.209.4:8080')], contextPath: null, war: '**/*.war'
+                slackSend(
+                    channel: '#jenkins-integration',
+                    color: 'good',
+                    message: "Hi Team, Jenkins pipeline for jenkins-04 task 2 *SIMPLE CUSTOMER APP* has finished successfully! :white_tick:\nDeployed by: prakash"
+                )
             }
+        }
+    }
+    post {
+        always {
+            echo 'Pipeline finished'
+        }
+        failure {
+            slackSend(
+                channel: '#jenkins-integration',
+                color: 'danger',
+                message: ":warning: Jenkins pipeline for *hiring-app* failed! Please check."
+            )
         }
     }
 }

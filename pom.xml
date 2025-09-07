@@ -73,11 +73,11 @@
     <distributionManagement>
         <repository>
             <id>nexus</id>
-            <url>http://107.21.137.31:8081/repository/maven-releases/</url>
+            <url>http://52.91.43.63:8081/repository/simple-app/</url>
         </repository>
         <snapshotRepository>
             <id>nexus</id>
-            <url>http://107.21.137.31:8081/repository/maven-snapshots/</url>
+            <url>http://52.91.43.63:8081/repository/simple-app/</url>
         </snapshotRepository>
     </distributionManagement>
 

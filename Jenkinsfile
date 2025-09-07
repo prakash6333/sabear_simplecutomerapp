@@ -2,18 +2,20 @@ pipeline {
     agent any
 
     tools {
-        maven 'MVN_HOME'      // This must match the name in Jenkins Global Tool Configuration
+        maven 'MVN_HOME'     // From Jenkins Global Tool Configuration
     }
 
     environment {
-        SCANNER_HOME = tool 'SonarScanner'   // SonarScanner name from Jenkins tool config
+        SCANNER_HOME = tool 'sonarscanner'   // SonarQube Scanner tool
+        NEXUS_REPO_URL = "http://52.91.43.63:8081/repository/simple-app/"
+        SONARQUBE_SERVER = "SonarQube"       // From SonarQube Jenkins config
     }
 
     stages {
 
         stage('Checkout SCM') {
             steps {
-                git branch: 'master', url: 'https://github.com/prakash6333/sabear_simplecutomerapp.git'
+                git branch: 'feature-1.1', url: 'https://github.com/prakash6333/sabear_simplecutomerapp.git'
             }
         }
 
@@ -25,7 +27,7 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQube-Server') {   // must match SonarQube server name in Jenkins system config
+                withSonarQubeEnv("${SONARQUBE_SERVER}") {
                     sh """
                         $SCANNER_HOME/bin/sonar-scanner \
                         -Dsonar.projectKey=Ncodeit \
@@ -40,16 +42,24 @@ pipeline {
 
         stage('Publish to Nexus') {
             steps {
-                sh 'mvn deploy'
+                sh """
+                    mvn deploy -DskipTests \
+                        -DaltDeploymentRepository=simple-app::default::${NEXUS_REPO_URL} \
+                        --settings /var/lib/jenkins/.m2/settings.xml
+                """
             }
         }
 
         stage('Deploy to Tomcat') {
             steps {
-                sh '''
-                    echo "Deploying WAR to Tomcat..."
-                    cp target/*.war /opt/tomcat/webapps/
-                '''
+                withCredentials([usernamePassword(credentialsId: 'tomcat_credentials', usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
+                    sh '''
+                        WAR_FILE=$(ls target/*.war | head -n 1)
+                        curl -u $TOMCAT_USER:$TOMCAT_PASS \
+                             -T $WAR_FILE \
+                             "http://107.21.137.31:8080/manager/text/deploy?path=/hiring&update=true"
+                    '''
+                }
             }
         }
 
@@ -73,6 +83,9 @@ pipeline {
                 message: "❌ Build ${env.JOB_NAME} #${env.BUILD_NUMBER} failed!",
                 tokenCredentialId: 'slack_integration'
             )
+        }
+        always {
+            echo "Pipeline finished"
         }
     }
 }

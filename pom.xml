@@ -1,41 +1,37 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
-                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.javatpoint</groupId>
     <artifactId>SimpleCustomerApp</artifactId>
+    
+    <!-- Version will be replaced dynamically by Jenkins -->
     <version>${env.BUILD_NUMBER}-SNAPSHOT</version>
     <packaging>war</packaging>
 
     <name>SimpleCustomerApp</name>
-    <url>http://maven.apache.org</url>
+    <description>Simple Customer Application</description>
 
     <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <dependencies>
-        <!-- Servlet API (provided by Tomcat) -->
-        <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-            <version>4.0.1</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- JUnit for testing -->
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.2</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+    <!-- Distribution Management: SNAPSHOT builds go to snapshot repo, RELEASE builds go to release repo -->
+    <distributionManagement>
+        <snapshotRepository>
+            <id>nexus</id>
+            <url>http://52.91.43.63:8081/repository/maven-snapshots/</url>
+        </snapshotRepository>
+        <repository>
+            <id>nexus</id>
+            <url>http://52.91.43.63:8081/repository/maven-releases/</url>
+        </repository>
+    </distributionManagement>
 
     <build>
         <plugins>
@@ -45,12 +41,12 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                    <source>11</source>
+                    <target>11</target>
                 </configuration>
             </plugin>
 
-            <!-- WAR packaging plugin -->
+            <!-- WAR plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
@@ -60,7 +56,7 @@
                 </configuration>
             </plugin>
 
-            <!-- Deploy plugin for Nexus -->
+            <!-- Deploy plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-deploy-plugin</artifactId>
@@ -68,17 +64,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <!-- Nexus repositories for deploy -->
-    <distributionManagement>
-        <repository>
-            <id>nexus</id>
-            <url>http://52.91.43.63:8081/repository/simple-app/</url>
-        </repository>
-        <snapshotRepository>
-            <id>nexus</id>
-            <url>http://52.91.43.63:8081/repository/simple-app/</url>
-        </snapshotRepository>
-    </distributionManagement>
-
 </project>

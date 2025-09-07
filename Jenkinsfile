@@ -1,83 +1,105 @@
 pipeline {
-    agent {
-        label "master"
-    }
+    agent any
+
     tools {
-        // Note: this should match with the tool name configured in your jenkins instance (JENKINS_URL/configureTools/)
-        maven "MVN_HOME"
-        
+        maven "MVN_HOME"   // Must match your Jenkins Maven tool name
     }
-	 environment {
-        // This can be nexus3 or nexus2
-        NEXUS_VERSION = "nexus3"
-        // This can be http or https
-        NEXUS_PROTOCOL = "http"
-        // Where your Nexus is running
-        NEXUS_URL = "52.91.43.63:8081/"
-        // Repository where we will upload the artifact
-        NEXUS_REPOSITORY = "simple-app"
-        // Jenkins credential id to authenticate to Nexus OSS
+
+    environment {
+        NEXUS_VERSION      = "nexus3"
+        NEXUS_PROTOCOL     = "http"
+        NEXUS_URL          = "52.91.43.63:8081"    // Nexus server (no trailing slash)
+        NEXUS_REPOSITORY   = "simple-app"
         NEXUS_CREDENTIAL_ID = "nexus"
+        TOMCAT_CRED        = "tomcat_credentials"
     }
+
     stages {
-        stage("clone code") {
+        stage('Checkout SCM') {
             steps {
-                script {
-                    // Let's clone the source
-                    git 'https://github.com/prakash6333/sabear_simplecutomerapp.git';
+                git branch: 'feature-1.1',
+                    url: 'https://github.com/prakash6333/sabear_simplecutomerapp.git'
+            }
+        }
+
+        stage('Maven Build') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('sonarcube_jenkins integration') {
+                    sh 'mvn sonar:sonar'
                 }
             }
         }
-        stage("mvn build") {
+
+        stage('Publish to Nexus') {
             steps {
                 script {
-                    // If you are using Windows then you should use "bat" step
-                    // Since unit testing is out of the scope we skip them
-                    sh 'mvn -Dmaven.test.failure.ignore=true install'
+                    pom = readMavenPom file: "pom.xml"
+                    filesByGlob = findFiles(glob: "target/*.${pom.packaging}")
+                    artifactPath = filesByGlob[0].path
+
+                    nexusArtifactUploader(
+                        nexusVersion: NEXUS_VERSION,
+                        protocol: NEXUS_PROTOCOL,
+                        nexusUrl: NEXUS_URL,
+                        groupId: pom.groupId,
+                        version: pom.version,
+                        repository: NEXUS_REPOSITORY,
+                        credentialsId: NEXUS_CREDENTIAL_ID,
+                        artifacts: [
+                            [artifactId: pom.artifactId,
+                             classifier: '',
+                             file: artifactPath,
+                             type: pom.packaging],
+                            [artifactId: pom.artifactId,
+                             classifier: '',
+                             file: "pom.xml",
+                             type: "pom"]
+                        ]
+                    )
                 }
             }
         }
-        stage("publish to nexus") {
+
+        stage('Deploy to Tomcat') {
             steps {
-                script {
-                    // Read POM xml file using 'readMavenPom' step , this step 'readMavenPom' is included in: https://plugins.jenkins.io/pipeline-utility-steps
-                    pom = readMavenPom file: "pom.xml";
-                    // Find built artifact under target folder
-                    filesByGlob = findFiles(glob: "target/*.${pom.packaging}");
-                    // Print some info from the artifact found
-                    echo "${filesByGlob[0].name} ${filesByGlob[0].path} ${filesByGlob[0].directory} ${filesByGlob[0].length} ${filesByGlob[0].lastModified}"
-                    // Extract the path from the File found
-                    artifactPath = filesByGlob[0].path;
-                    // Assign to a boolean response verifying If the artifact name exists
-                    artifactExists = fileExists artifactPath;
-                    if(artifactExists) {
-                        echo "*** File: ${artifactPath}, group: ${pom.groupId}, packaging: ${pom.packaging}, version ${pom.version}";
-                        nexusArtifactUploader(
-                            nexusVersion: NEXUS_VERSION,
-                            protocol: NEXUS_PROTOCOL,
-                            nexusUrl: NEXUS_URL,
-			    groupId: pom.groupId,
-                            version: pom.version,
-                            repository: NEXUS_REPOSITORY,
-                            credentialsId: NEXUS_CREDENTIAL_ID,
-                            artifacts: [
-                                // Artifact generated such as .jar, .ear and .war files.
-                                [artifactId: pom.artifactId,
-                                classifier: '',
-                                file: artifactPath,
-                                type: pom.packaging],
-                                // Lets upload the pom.xml file for additional information for Transitive dependencies
-                                [artifactId: pom.artifactId,
-                                classifier: '',
-                                file: "pom.xml",
-                                type: "pom"]
-                            ]
-                        );
-                    } else {
-                        error "*** File: ${artifactPath}, could not be found";
-                    }
+                withCredentials([usernamePassword(credentialsId: "${TOMCAT_CRED}", usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
+                    sh '''
+                        WAR_FILE=$(ls target/*.war | head -n 1)
+                        curl -u $TOMCAT_USER:$TOMCAT_PASS \
+                             -T $WAR_FILE \
+                             "http://18.234.209.4:8080/manager/text/deploy?path=/hiring&update=true"
+                    '''
                 }
             }
+        }
+
+        stage('Slack Notification') {
+            steps {
+                slackSend(
+                    channel: '#jenkins-integration',
+                    color: 'good',
+                    message: "✅ Deployment successful for *Simple Customer App* on Tomcat.\nDeployed by: prakash"
+                )
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline finished.'
+        }
+        failure {
+            slackSend(
+                channel: '#jenkins-integration',
+                color: 'danger',
+                message: "⚠️ Jenkins pipeline for *Simple Customer App* failed! Please check logs."
+            )
         }
     }
 }

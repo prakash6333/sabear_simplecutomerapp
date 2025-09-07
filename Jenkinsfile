@@ -2,16 +2,16 @@ pipeline {
     agent any
 
     tools {
-        maven "MVN_HOME"   // Must match your Jenkins Maven tool name
+        maven "MVN_HOME"   // Must match the Maven tool configured in Jenkins
     }
 
     environment {
-        NEXUS_VERSION      = "nexus3"
-        NEXUS_PROTOCOL     = "http"
-        NEXUS_URL          = "52.91.43.63:8081"    // Nexus server (no trailing slash)
-        NEXUS_REPOSITORY   = "simple-app"
-        NEXUS_CREDENTIAL_ID = "nexus"
-        TOMCAT_CRED        = "tomcat_credentials"
+        NEXUS_VERSION       = "nexus3"
+        NEXUS_PROTOCOL      = "http"
+        NEXUS_URL           = "52.91.43.63:8081"   // Nexus IP
+        NEXUS_REPOSITORY    = "simple-app"
+        NEXUS_CREDENTIAL_ID = "nexus"             // Nexus Jenkins credential ID
+        TOMCAT_CRED         = "tomcat_credentials" // Tomcat Jenkins credential ID
     }
 
     stages {
@@ -73,7 +73,7 @@ pipeline {
                         WAR_FILE=$(ls target/*.war | head -n 1)
                         curl -u $TOMCAT_USER:$TOMCAT_PASS \
                              -T $WAR_FILE \
-                             "http://18.234.209.4:8080/manager/text/deploy?path=/hiring&update=true"
+                             "http://107.21.137.31:8080/manager/text/deploy?path=/hiring&update=true"
                     '''
                 }
             }
@@ -84,7 +84,7 @@ pipeline {
                 slackSend(
                     channel: '#jenkins-integration',
                     color: 'good',
-                    message: "✅ Deployment successful for *Simple Customer App* on Tomcat.\nDeployed by: prakash"
+                    message: "✅ Deployment successful for *Simple Customer App* on Tomcat (107.21.137.31).\nDeployed by: prakash"
                 )
             }
         }

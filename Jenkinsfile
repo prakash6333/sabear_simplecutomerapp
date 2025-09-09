@@ -1,28 +1,22 @@
 pipeline {
     agent any
-
     tools {
         maven 'MVN_HOME'   // must match Maven tool name in Jenkins
     }
-
     environment {
         SCANNER_HOME = tool 'SonarScanner'   // must match SonarScanner tool name
     }
-
     stages {
-
         stage('Checkout SCM') {
             steps {
                 git branch: 'master', url: 'https://github.com/prakash6333/sabear_simplecutomerapp.git'
             }
         }
-
         stage('Maven Build') {
             steps {
                 sh 'mvn clean package -DskipTests'
             }
         }
-
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {   // must match SonarQube server name in Jenkins
@@ -37,13 +31,11 @@ pipeline {
                 }
             }
         }
-
         stage('Publish to Nexus') {
             steps {
                 sh 'mvn deploy'
             }
         }
-
        stage('Deploy to Tomcat') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'admin', usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
@@ -54,7 +46,6 @@ pipeline {
                     '''
                 }
             }
-
         stage('Slack Notification') {
             steps {
                 slackSend(
@@ -66,7 +57,6 @@ pipeline {
             }
         }
     }
-
     post {
         failure {
             slackSend(

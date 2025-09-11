@@ -36,16 +36,17 @@ pipeline {
                 sh 'mvn deploy'
             }
         }
-       stage('Deploy to Tomcat') {
+        stage('Deploy to Tomcat') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'admin', usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
                     sh '''
-                    curl -u $TOMCAT_USER:$TOMCAT_PASS \
-                         -T target/SimpleCustomerApp.war \
-                         http://107.21.137.31:8080/manager/text/deploy?path=/hiring&update=true
+                        curl -u $TOMCAT_USER:$TOMCAT_PASS \
+                             -T target/SimpleCustomerApp.war \
+                             http://107.21.137.31:8080/manager/text/deploy?path=/hiring&update=true
                     '''
                 }
             }
+        }
         stage('Slack Notification') {
             steps {
                 slackSend(
@@ -67,5 +68,4 @@ pipeline {
             )
         }
     }
-}
 }

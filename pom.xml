@@ -9,7 +9,7 @@
     <artifactId>SimpleCustomerApp</artifactId>
     
     <!-- Version will be replaced dynamically by Jenkins -->
-    <version>${env.BUILD_NUMBER}-SNAPSHOT</version>
+    <version>${env.BUILD_NUMBER}</version>
     <packaging>war</packaging>
 
     <name>SimpleCustomerApp</name>

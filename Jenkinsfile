@@ -38,7 +38,7 @@ pipeline {
         }
         stage('Deploy to Tomcat') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'admin', usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: 'tomcat_credentials', usernameVariable: 'TOMCAT_USER', passwordVariable: 'TOMCAT_PASS')]) {
                     sh '''
                         curl -u $TOMCAT_USER:$TOMCAT_PASS \
                              -T target/SimpleCustomerApp.war \
